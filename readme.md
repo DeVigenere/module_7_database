@@ -9,7 +9,7 @@
 Схема базы данных:
 Поле Тип Описание
 
-id | INTEGER PRIMARY KEY | Уникальный идентификатор (суррогатный ключ)\n
+id | INTEGER PRIMARY KEY | Уникальный идентификатор (суррогатный ключ)
 source_service | TEXT | Источник сообщения (calculator)
 timestamp_utc | DATETIME | Время отправки (из контракта)
 payload | TEXT | Полезные данные
