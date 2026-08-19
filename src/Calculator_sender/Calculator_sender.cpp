@@ -7,7 +7,6 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
-#pragma comment(lib, "ws2_32.lib")
 
 const int PORT = 8080;
 const int BUFFER_SIZE = 1024;
@@ -15,8 +14,14 @@ const int BUFFER_SIZE = 1024;
 std::string buildMessage(const std::string& source, const std::string& payload) {
     auto now = std::chrono::system_clock::now();
     auto now_c = std::chrono::system_clock::to_time_t(now);
+    struct tm tm_buf;
     std::stringstream ss;
-    ss << std::put_time(std::gmtime(&now_c), "%Y-%m-%dT%H:%M:%SZ");
+    if (gmtime_s(&tm_buf, &now_c) == 0) {
+        ss << std::put_time(&tm_buf, "%Y-%m-%dT%H:%M:%SZ");
+    }
+    else {
+        ss << "1970-01-01T00:00:00Z";
+    }
     std::stringstream message;
     message << "{\"source_service\":\"" << source << "\","
         << "\"timestamp_utc\":\"" << ss.str() << "\","

@@ -6,8 +6,7 @@ CREATE TABLE IF NOT EXISTS messages (
     received_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     status TEXT DEFAULT 'received',
     schema_version INTEGER DEFAULT 1,
-    processed BOOLEAN DEFAULT 0,
-    UNIQUE(source_service, timestamp_utc, payload(100))
+    processed BOOLEAN DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_source_service ON messages(source_service);

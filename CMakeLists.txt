@@ -1,36 +1,30 @@
 cmake_minimum_required(VERSION 3.10)
-project(DATABAZAAAAAAA)
+project(module_7)
 
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
-set(SQLITE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/SQLite)
-
-include_directories(${SQLITE_DIR}/include)
-link_directories(${SQLITE_DIR}/lib)
-
-add_executable(receiver receiver.cpp)
-target_link_libraries(receiver 
-    ws2_32 
-    sqlite3
+include_directories(
+    include
+    include/Calculator
+    include/Databaza
+    include/Message
+    include/Network
+    include/sqlite3
+    include/nlohmann
 )
 
-add_executable(calculator_sender 
-    calculator_sender.cpp 
-    Calculator.cpp
-)
-target_link_libraries(calculator_sender 
-    ws2_32
-)
-
-add_custom_command(TARGET receiver POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${SQLITE_DIR}/bin/sqlite3.dll
-        $<TARGET_FILE_DIR:receiver>
+set(SRC
+    src/Network/Network.cpp
+    src/Message/Message.cpp
+    src/Globals.cpp
+    src/Databaza/Databaza.cpp
 )
 
-add_custom_command(TARGET calculator_sender POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${SQLITE_DIR}/bin/sqlite3.dll
-        $<TARGET_FILE_DIR:calculator_sender>
-)
+add_executable(receiver src/Receiver/Receiver.cpp ${SRC})
+add_executable(calculator_sender src/Calculator_sender/Calculator_sender.cpp src/Calculator/Calculator.cpp ${SRC})
+
+target_link_libraries(receiver ws2_32 sqlite3)
+target_link_libraries(calculator_sender ws2_32 sqlite3)
+target_link_directories(receiver PRIVATE bin/sqlite3)
+target_link_directories(calculator_sender PRIVATE bin/sqlite3)
