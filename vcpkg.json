@@ -1,0 +1,12 @@
+{
+  "name": "module-7",
+  "version": "1.0.0",
+  "dependencies": [
+    "sqlite3"
+  ],
+  "features": {
+    "sqlite3-tool": {
+      "description": "SQLite3 command-line tool"
+    }
+  }
+}

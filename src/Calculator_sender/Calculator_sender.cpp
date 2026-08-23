@@ -1,12 +1,17 @@
 #include "Calculator.h"
+#include "Network/Network.h"
+#include <nlohmann/json.hpp>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
 #include <chrono>
 #include <thread>
-#include <winsock2.h>
-#include <ws2tcpip.h>
 
+#ifdef _WIN32
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#endif
+
+using json = nlohmann::json;
 
 const int PORT = 8080;
 const int BUFFER_SIZE = 1024;
@@ -16,29 +21,26 @@ std::string buildMessage(const std::string& source, const std::string& payload) 
     auto now_c = std::chrono::system_clock::to_time_t(now);
     struct tm tm_buf;
     std::stringstream ss;
+#ifdef _WIN32
     if (gmtime_s(&tm_buf, &now_c) == 0) {
         ss << std::put_time(&tm_buf, "%Y-%m-%dT%H:%M:%SZ");
     }
+#else
+    if (gmtime_r(&now_c, &tm_buf) != nullptr) {
+        ss << std::put_time(&tm_buf, "%Y-%m-%dT%H:%M:%SZ");
+    }
+#endif
     else {
         ss << "1970-01-01T00:00:00Z";
     }
-    std::stringstream message;
-    message << "{\"source_service\":\"" << source << "\","
-        << "\"timestamp_utc\":\"" << ss.str() << "\","
-        << "\"payload\":\"" << payload << "\"}";
-    return message.str();
+    json messageJson;
+    messageJson["source_service"] = source;
+    messageJson["timestamp_utc"] = ss.str();
+    messageJson["payload"] = payload;
+    return messageJson.dump();
 }
 
-bool initWinsock() {
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cerr << "error initialization winsock" << std::endl;
-        return false;
-    }
-    return true;
-}
-
-std::string catchfullrecv(SOCKET sock) {
+std::string catchfullrecv(socket_t sock) {
     std::string response;
     char buffer[BUFFER_SIZE] = { 0 };
     int timeout = 2000;
@@ -48,49 +50,53 @@ std::string catchfullrecv(SOCKET sock) {
         if (bytes > 0) {
             response += std::string(buffer, bytes);
         }
-        else if (bytes == 0) {
-            break;
-        }
         else {
             break;
         }
     }
     if (!response.empty()) {
-        std::cout << "server response: " << response << std::endl;
+        std::cout << "Server response: " << response << std::endl;
     }
     return response;
 }
 
 bool sendMessage(const std::string& message) {
-    SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock == INVALID_SOCKET) {
-        std::cerr << "error create socket" << std::endl;
+    Network net;
+    if (!net.init()) {
+        std::cerr << "Failed to initialize network" << std::endl;
+        return false;
+    }
+    socket_t sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == SOCKET_INVALID_VAL) {
+        std::cerr << "Failed to create socket" << std::endl;
         return false;
     }
     sockaddr_in serv_addr;
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT);
+#ifdef _WIN32
     serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    if (connect(sock, (sockaddr*)&serv_addr, sizeof(serv_addr)) == SOCKET_ERROR) {
-        std::cerr << "error connect to serever(unavailable)" << std::endl;
-        closesocket(sock);
+#else
+    inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
+#endif
+    if (connect(sock, (sockaddr*)&serv_addr, sizeof(serv_addr)) == SOCKET_ERROR_VAL) {
+        std::cerr << "Failed to connect to server" << std::endl;
+        net.closeSocket(sock);
         return false;
     }
-    auto bytes_sent = send(sock, message.c_str(), message.length(), 0);
-    if (bytes_sent == SOCKET_ERROR) {
-        std::cerr << "error sending" << std::endl;
-        closesocket(sock);
+    auto bytes_sent = net.send(sock, message.c_str(), static_cast<int>(message.length()));
+    if (bytes_sent == SOCKET_ERROR_VAL) {
+        std::cerr << "Failed to send message" << std::endl;
+        net.closeSocket(sock);
         return false;
     }
     catchfullrecv(sock);
-    closesocket(sock);
+    net.closeSocket(sock);
+    net.cleanup();
     return true;
 }
 
 int main() {
-    if (!initWinsock()) {
-        return 1;
-    }
     Calculator calc;
     struct Operation {
         int a, b;
@@ -125,21 +131,19 @@ int main() {
             std::string payload = std::to_string(op.a) + " " + op.op + " " +
                 std::to_string(op.b) + " = " + result;
             std::string message = buildMessage("calculator", payload);
-            std::cout << "\nsending: " << message << std::endl;
+            std::cout << "\nSending: " << message << std::endl;
             if (sendMessage(message)) {
                 sent_count++;
             }
             else {
-                std::cerr << "cannot send message" << std::endl;
+                std::cerr << "Failed to send message" << std::endl;
             }
         }
         catch (const std::exception& e) {
-            std::cerr << "error calculation: " << e.what() << std::endl;
+            std::cerr << "Calculation error: " << e.what() << std::endl;
         }
-        std::this_thread::sleep_for(std::chrono::seconds(1)); //for demo
+        std::this_thread::sleep_for(std::chrono::seconds(1));
     }
-    std::cout << "\nsending " << sent_count << " from " << total_ops << " message" << std::endl;
-    WSACleanup();
-    system("pause");
+    std::cout << "\nSent " << sent_count << " out of " << total_ops << " messages" << std::endl;
     return 0;
 }

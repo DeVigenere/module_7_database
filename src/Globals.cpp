@@ -1,3 +1,4 @@
-#include "Databaza/Databaza.h"
+#include "Globals.h"
+#include "Databaza/SqliteDatabase.h"
 
-Databaza g_db;
+std::unique_ptr<IDatabase> g_db = std::make_unique<SqliteDatabase>("db/messages.db");

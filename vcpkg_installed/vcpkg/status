@@ -1,0 +1,31 @@
+Package: vcpkg-cmake-config
+Version: 2026-07-21
+Architecture: x64-windows
+Multi-Arch: same
+Abi: 996d8d0513d5ea0d1e82c98a36c8fa4f4ef3c09396ba60b96d74dad481d081a6
+Status: install ok installed
+
+Package: vcpkg-cmake
+Version: 2025-08-07
+Architecture: x64-windows
+Multi-Arch: same
+Abi: 38a9adf80df8c77583a573f2076a8d8b9ca1ab4d85e95eca9d9d9312936cd7f8
+Status: install ok installed
+
+Package: sqlite3
+Version: 3.53.4
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-windows
+Multi-Arch: same
+Abi: 515c5e5ac1c55012dc72b675964a2a672eba08e886a75215876210fdc5032663
+Description: SQLite is a software library that implements a self-contained, serverless, zero-configuration, transactional SQL database engine.
+Default-Features: json1
+Status: install ok installed
+
+Package: sqlite3
+Feature: json1
+Architecture: x64-windows
+Multi-Arch: same
+Description: Enable JSON functionality for sqlite3
+Status: install ok installed
+
