@@ -27,7 +27,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Install deps
-      run: vcpkg install sqlite3:x64-windows
+      run: vcpkg install sqlite3:x64-windows --classic
     - name: Configure
       run: |
         mkdir build && cd build
