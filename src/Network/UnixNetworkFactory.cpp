@@ -1,5 +1,5 @@
-#include "Network/platform/UnixNetworkFactory.h"
-#include "Network/platform/UnixConnection.h"
+#include "Network/UnixNetworkFactory.h"
+#include "Network/UnixConnection.h"
 #include <iostream>
 #include <unistd.h>
 #include <fcntl.h>
