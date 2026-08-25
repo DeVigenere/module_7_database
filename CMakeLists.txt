@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.3.3)
+cmake_minimum_required(VERSION 3.31.6)
 
 set(VCPKG_ROOT "${CMAKE_SOURCE_DIR}/vcpkg")
 set(VCPKG_EXECUTABLE "${VCPKG_ROOT}/vcpkg")
