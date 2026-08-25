@@ -1,5 +1,6 @@
 #include "Message.h"
 #include "Globals.h"
+#include <nlohmann/json.hpp>
 
 bool parseMessage(const std::string& jsonStr, Message& msg) {
     try {

@@ -1,106 +1,89 @@
 #include "Globals.h"
 #include "Message.h"
-#include "Network/Network.h"
+#include "Network/NetworkFactory.h"
+#include "Network/IConnection.h"
+#include "Network/INetworkFactory.h"
 #include <nlohmann/json.hpp>
 #include <atomic>
 #include <thread>
 #include <iostream>
-#include <cstring>
+#include <memory>
 
 using json = nlohmann::json;
 
 const int PORT = 8080;
-const int BUFFER_SIZE = 4096;
 std::atomic<bool> running{ true };
 
-Network g_network;
-
-#ifdef _WIN32
-DWORD WINAPI handleClient(LPVOID param) {
-    socket_t client_socket = static_cast<socket_t>(reinterpret_cast<INT_PTR>(param));
-#else
-void* handleClient(void* param) {
-    socket_t client_socket = static_cast<socket_t>(reinterpret_cast<intptr_t>(param));
-#endif
-    char buffer[BUFFER_SIZE] = { 0 };
-    std::cout << "New connection" << std::endl;
-
-    while (running) {
-        memset(buffer, 0, BUFFER_SIZE);
-        int bytes_read = g_network.receive(client_socket, buffer, BUFFER_SIZE - 1);
-        if (bytes_read == SOCKET_ERROR_VAL) {
-#ifdef _WIN32
-            int error = WSAGetLastError();
-            if (error != WSAETIMEDOUT && error != WSAEWOULDBLOCK) {
-                std::cerr << "Error reading message: " << error << std::endl;
-            }
-#else
-            if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
-                std::cerr << "Error reading message: " << strerror(errno) << std::endl;
-            }
-#endif
-            break;
-        }
-        else if (bytes_read == 0) {
-            std::cout << "Client disconnected" << std::endl;
-            break;
-        }
-        std::string received(buffer, bytes_read);
-        printMessage(received);
-        g_network.send(client_socket, "OK", 2);
+void handleClient(std::unique_ptr<IConnection> client) {
+    if (!client) {
+        std::cerr << "Invalid client connection" << std::endl;
+        return;
     }
-    g_network.closeSocket(client_socket);
-#ifdef _WIN32
-    return 0;
-#else
-    return nullptr;
-#endif
+    std::cout << "New connection accepted" << std::endl;
+    std::string received;
+    while (running && client->isOpen()) {
+        std::string chunk;
+        if (!client->recvSome(chunk, 1024)) {
+            if (!client->isOpen()) {
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            continue;
+        }
+        received += chunk;
+        size_t pos;
+        while ((pos = received.find('\n')) != std::string::npos) {
+            std::string message = received.substr(0, pos);
+            received.erase(0, pos + 1);
+            if (!message.empty()) {
+                printMessage(message);
+                client->sendAll("OK\n");
+            }
+        }
+
+        if (received.size() > 1024) {
+            std::cerr << "Message large" << std::endl;
+            received.clear();
+        }
+    }
+    client->close();
+    std::cout << "Client disconnected" << std::endl;
 }
 
 int main() {
-    if (!g_network.init()) {
-        std::cerr << "Failed to initialize network" << std::endl;
+    auto factory = makeNetworkFactory();
+    if (!factory || !factory->init()) {
+        std::cerr << "Failed to init network" << std::endl;
         return 1;
     }
     if (!g_db->init()) {
-        std::cerr << "Error initializing database" << std::endl;
-        g_network.cleanup();
+        std::cerr << "Error init database" << std::endl;
+        factory->cleanup();
         return 1;
     }
-    socket_t server_fd = g_network.createServerSocket(PORT);
-    if (server_fd == SOCKET_INVALID_VAL) {
+    auto listener = factory->listen(PORT);
+    if (!listener) {
         g_db->close();
-        g_network.cleanup();
+        factory->cleanup();
         return 1;
     }
-    std::cout << "Service running on port " << PORT << std::endl;
+    std::cout << "Service on port " << PORT << std::endl;
     std::cout << "To get stats, send message with source_service='control' and payload='stats'" << std::endl;
     while (running) {
-        socket_t client_socket = g_network.acceptClient(server_fd);
-        if (client_socket == SOCKET_INVALID_VAL) {
+        auto client = factory->accept(listener);
+        if (!client) {
             if (running) {
-                std::cerr << "Error accepting connection" << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             continue;
         }
-#ifdef _WIN32
-        std::thread thread(handleClient,
-            reinterpret_cast<LPVOID>(static_cast<INT_PTR>(client_socket)));
-#else
-        std::thread thread(handleClient,
-            reinterpret_cast<void*>(static_cast<intptr_t>(client_socket)));
-#endif
-        if (thread.joinable()) {
-            thread.detach();
-        }
-        else {
-            std::cerr << "Failed to create thread" << std::endl;
-            g_network.closeSocket(client_socket);
-        }
+        std::thread([client = std::move(client)]() mutable {
+            handleClient(std::move(client));
+            }).detach();
     }
-    g_network.closeSocket(server_fd);
+    listener->close();
     g_db->close();
-    g_network.cleanup();
-    std::cout << "Service stopped" << std::endl;
+    factory->cleanup();
+    std::cout << "Service stop" << std::endl;
     return 0;
 }
