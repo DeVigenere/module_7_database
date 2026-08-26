@@ -68,7 +68,6 @@ include_directories(
 )
 
 set(COMMON_SRC
-    src/Network/Network.cpp
     src/Network/NetworkFactory.cpp
     src/Message/Message.cpp
     src/Globals.cpp
@@ -79,11 +78,13 @@ if(WIN32)
     set(PLATFORM_SRC
         src/Network/WinNetworkFactory.cpp
         src/Network/WinConnection.cpp
+	src/Network/WinListener.cpp
     )
 else()
     set(PLATFORM_SRC
         src/Network/UnixNetworkFactory.cpp
         src/Network/UnixConnection.cpp
+	src/Network/UnixListener.cpp
     )
 endif()
 

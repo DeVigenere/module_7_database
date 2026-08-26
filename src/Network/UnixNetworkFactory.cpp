@@ -1,5 +1,6 @@
 #include "Network/UnixNetworkFactory.h"
 #include "Network/UnixConnection.h"
+#include "Network/UnixListener.h"
 #include <iostream>
 #include <unistd.h>
 #include <fcntl.h>
@@ -15,7 +16,7 @@ void UnixNetworkFactory::cleanup() {
     initialized_ = false;
 }
 
-std::unique_ptr<IConnection> UnixNetworkFactory::listen(std::uint16_t port) {
+std::unique_ptr<IListener> UnixNetworkFactory::listen(std::uint16_t port) {
     int sock = ::socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         std::cerr << "Failed create socket: " << strerror(errno) << std::endl;
@@ -27,7 +28,6 @@ std::unique_ptr<IConnection> UnixNetworkFactory::listen(std::uint16_t port) {
         close(sock);
         return nullptr;
     }
-
     sockaddr_in address{};
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
@@ -43,7 +43,7 @@ std::unique_ptr<IConnection> UnixNetworkFactory::listen(std::uint16_t port) {
         return nullptr;
     }
     std::cout << "Listening on port " << port << std::endl;
-    return std::make_unique<UnixConnection>(sock);
+    return std::make_unique<UnixListener>(sock);
 }
 
 std::unique_ptr<IConnection> UnixNetworkFactory::connectTo(const std::string& host, std::uint16_t port) {
@@ -66,21 +66,4 @@ std::unique_ptr<IConnection> UnixNetworkFactory::connectTo(const std::string& ho
         return nullptr;
     }
     return std::make_unique<UnixConnection>(sock);
-}
-
-std::unique_ptr<IConnection> UnixNetworkFactory::accept(std::unique_ptr<IConnection>& listeningSocket) {
-    auto* unixConn = dynamic_cast<UnixConnection*>(listeningSocket.get());
-    if (!unixConn) {
-        std::cerr << "Invalid listening socket type" << std::endl;
-        return nullptr;
-    }
-    int clientSock = ::accept(unixConn->getSocket(), nullptr, nullptr);
-    if (clientSock < 0) {
-        if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            std::cerr << "failed: " << strerror(errno) << std::endl;
-        }
-        return nullptr;
-    }
-
-    return std::make_unique<UnixConnection>(clientSock);
 }

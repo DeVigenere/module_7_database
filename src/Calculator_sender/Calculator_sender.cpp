@@ -19,8 +19,15 @@ std::string buildMessage(const std::string& source, const std::string& payload) 
     auto now_c = std::chrono::system_clock::to_time_t(now);
     auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         now.time_since_epoch()) % 1000;
+
+    std::tm tm_buf;
+#ifdef _WIN32
+    gmtime_s(&tm_buf, &now_c);
+#else
+    gmtime_r(&now_c, &tm_buf);
+#endif
     std::stringstream ss;
-    ss << std::put_time(std::gmtime(&now_c), "%Y-%m-%dT%H:%M:%S")
+    ss << std::put_time(&tm_buf, "%Y-%m-%dT%H:%M:%S")
         << "." << std::setfill('0') << std::setw(3) << now_ms.count() << "Z";
     json messageJson;
     messageJson["source_service"] = source;
@@ -30,7 +37,7 @@ std::string buildMessage(const std::string& source, const std::string& payload) 
 }
 
 bool sendMessage(const std::string& message) {
-    auto factory = makeNetworkFactory();
+    static auto factory = makeNetworkFactory();
     if (!factory || !factory->init()) {
         std::cerr << "Failed to initialize network" << std::endl;
         return false;

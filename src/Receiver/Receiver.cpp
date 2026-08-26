@@ -3,6 +3,7 @@
 #include "Network/NetworkFactory.h"
 #include "Network/IConnection.h"
 #include "Network/INetworkFactory.h"
+#include "Network/IListener.h"
 #include <nlohmann/json.hpp>
 #include <atomic>
 #include <thread>
@@ -40,7 +41,6 @@ void handleClient(std::unique_ptr<IConnection> client) {
                 client->sendAll("OK\n");
             }
         }
-
         if (received.size() > 1024) {
             std::cerr << "Message large" << std::endl;
             received.clear();
@@ -70,7 +70,7 @@ int main() {
     std::cout << "Service on port " << PORT << std::endl;
     std::cout << "To get stats, send message with source_service='control' and payload='stats'" << std::endl;
     while (running) {
-        auto client = factory->accept(listener);
+        auto client = listener->accept();
         if (!client) {
             if (running) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
