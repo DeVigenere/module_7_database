@@ -13,6 +13,7 @@
 using json = nlohmann::json;
 
 const int PORT = 8080;
+const int BUFFER = 1024;
 std::atomic<bool> running{ true };
 
 void handleClient(std::unique_ptr<IConnection> client) {
@@ -24,7 +25,7 @@ void handleClient(std::unique_ptr<IConnection> client) {
     std::string received;
     while (running && client->isOpen()) {
         std::string chunk;
-        if (!client->recvSome(chunk, 1024)) {
+        if (!client->recvSome(chunk, BUFFER)) {
             if (!client->isOpen()) {
                 break;
             }
@@ -41,7 +42,7 @@ void handleClient(std::unique_ptr<IConnection> client) {
                 client->sendAll("OK\n");
             }
         }
-        if (received.size() > 1024) {
+        if (received.size() > BUFFER) {
             std::cerr << "Message large" << std::endl;
             received.clear();
         }
